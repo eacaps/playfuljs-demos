@@ -1,0 +1,3 @@
+find the scale thing using gdalinfo
+
+gdal_translate -scale 0 2470 0 65535 -ot UInt16 -outsize 200 200 -of ENVI jotunheimen.tif jotunheimen.bin
