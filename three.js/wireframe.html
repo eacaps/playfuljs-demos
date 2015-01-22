@@ -26,7 +26,29 @@
     camera.position.y = -200;
     camera.position.z = 100;
 
-    var renderer = new THREE.WebGLRenderer();
+	
+	function webglAvailable() {
+		try {
+			var canvas = document.createElement( 'canvas' );
+			return !!( window.WebGLRenderingContext && (
+				canvas.getContext( 'webgl' ) ||
+				canvas.getContext( 'experimental-webgl' ) )
+			);
+		} catch ( e ) {
+			return false;
+		}
+	}
+	
+    var renderer;
+	
+	if ( webglAvailable() ) {
+		console.log('webgl');
+		renderer = new THREE.WebGLRenderer();
+	} else {
+		console.log('canvas')
+		renderer = new THREE.CanvasRenderer();
+	}
+	
     renderer.setSize(width, height);
     //renderer.shadowMapEnabled = true;
     //renderer.shadowMapSoft = true;
@@ -41,6 +63,7 @@
 
         for (var i = 0, l = geometry.vertices.length; i < l; i++) {
 			var intval = data[i] / 65535 * 100
+			//var intval = data[i];
             geometry.vertices[i].z = intval;
         }
 
