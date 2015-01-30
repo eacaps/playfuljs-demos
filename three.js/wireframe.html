@@ -6,17 +6,29 @@
 <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
 <style>
     body { margin: 0; overflow: hidden; }
+	
+	#llhbox {
+		position:absolute;
+		left:0px;
+		bottom:0px;
+		width:100%;
+		height:30px;
+		background-color:white;
+	}
 </style>
 </head>
 <body>
 <div id="webgl"></div>
 <script src="lib/three.min.js"></script>
 <script src="lib/TrackballControls.js"></script> 
+<script src="lib/jquery-1.11.2.min.js"></script>
 <script>
 
     var width  = window.innerWidth,
         height = window.innerHeight;
 
+	var objects = [];
+		
     var scene = new THREE.Scene();
 
     var axes = new THREE.AxisHelper(200);
@@ -53,7 +65,15 @@
     //renderer.shadowMapEnabled = true;
     //renderer.shadowMapSoft = true;
 
-    loadTerrain('data/test1.out', function (data){
+	var scalevalue = 1140;
+	var bbox = {
+		top : 74,
+		left: 81,
+		bottom: 73,
+		right: 82,
+	}
+	
+    loadTerrain('data/water.bin', function (data){
         console.log(data);
 
         var geometry = new THREE.PlaneGeometry(200, 200, 199, 199);
@@ -76,6 +96,8 @@
         plane.castShadow = true;
         plane.receiveShadow = true;
         scene.add(plane);
+		
+		objects.push(plane);
 
         var controls = new THREE.TrackballControls(camera); 
 
@@ -129,7 +151,45 @@
         };
         req.send(null);
     }
+	
+	document.addEventListener( 'mousemove', onDocumentMouseDown, false );
+	
+	var raycaster = new THREE.Raycaster();
+	var mouse = new THREE.Vector2();
+	
+	function onDocumentMouseDown( event ) {
+		//event.preventDefault();
+
+		mouse.x = ( event.clientX / renderer.domElement.width ) * 2 - 1;
+		mouse.y = - ( event.clientY / renderer.domElement.height ) * 2 + 1;
+
+		raycaster.setFromCamera( mouse, camera );
+		var intersects = raycaster.intersectObjects( objects );
+
+		if ( intersects.length > 0 ) {
+			/*intersects[ 0 ].object.material.color.setHex( Math.random() * 0xffffff );
+			var particle = new THREE.Sprite( particleMaterial );
+			particle.position.copy( intersects[ 0 ].point );
+			particle.scale.x = particle.scale.y = 16;
+			scene.add( particle );*/
+			console.log('intersection');
+			var point = intersects[0].point
+			var scaledx = simpleScale(bbox.left, bbox.right, point.x);
+			var scaledy = simpleScale(bbox.bottom, bbox.top, point.y);
+			var scaledz = point.z * scalevalue / 100;
+			$('#llhbox').html(scaledx+", "+scaledy+", "+scaledz);
+		}
+	}
+	
+	function simpleScale(min, max, val) {
+		var adj = (val + 100)/200.0;
+		var result = ((1-adj) * min) + (adj * max);
+		return result;
+	}
 
 </script>
+<div id='llhbox'>
+
+</div>
 </body>
 </html>
