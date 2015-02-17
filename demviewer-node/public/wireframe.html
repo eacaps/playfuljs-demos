@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+<title>three.js - Jotunheimen</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+<style>
+    body { margin: 0; overflow: hidden; }
+	
+	#llhbox {
+		position:absolute;
+		left:0px;
+		bottom:0px;
+		width:100%;
+		height:30px;
+		background-color:white;
+	}
+</style>
+</head>
+<body>
+<div id="webgl"></div>
+<script src="javascripts/three.min.js"></script>
+<script src="javascripts/TrackballControls.js"></script> 
+<script src="javascripts/jquery-1.11.2.min.js"></script>
+<script>
+
+var QueryString = function () {
+  // This function is anonymous, is executed immediately and 
+  // the return value is assigned to QueryString!
+  var query_string = {};
+  var query = window.location.search.substring(1);
+  var vars = query.split("&");
+  for (var i=0;i<vars.length;i++) {
+    var pair = vars[i].split("=");
+        // If first entry with this name
+    if (typeof query_string[pair[0]] === "undefined") {
+      query_string[pair[0]] = pair[1];
+        // If second entry with this name
+    } else if (typeof query_string[pair[0]] === "string") {
+      var arr = [ query_string[pair[0]], pair[1] ];
+      query_string[pair[0]] = arr;
+        // If third or later entry with this name
+    } else {
+      query_string[pair[0]].push(pair[1]);
+    }
+  } 
+    return query_string;
+} ();
+
+var demfile = QueryString.file
+
+  var width  = window.innerWidth,
+    height = window.innerHeight;
+
+  var objects = [];
+
+  var scene = new THREE.Scene();
+
+  var axes = new THREE.AxisHelper(200);
+  scene.add(axes);
+
+  var camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+  camera.position.y = -200;
+  camera.position.z = 100;
+
+	
+	function webglAvailable() {
+		try {
+			var canvas = document.createElement( 'canvas' );
+			return !!( window.WebGLRenderingContext && (
+				canvas.getContext( 'webgl' ) ||
+				canvas.getContext( 'experimental-webgl' ) )
+			);
+		} catch ( e ) {
+			return false;
+		}
+	}
+	
+  var renderer;
+	
+	if ( webglAvailable() ) {
+		console.log('webgl');
+		renderer = new THREE.WebGLRenderer();
+	} else {
+		console.log('canvas')
+		renderer = new THREE.CanvasRenderer();
+	}
+	
+  renderer.setSize(width, height);
+  //renderer.shadowMapEnabled = true;
+  //renderer.shadowMapSoft = true;
+
+
+  var scalevalue = null;
+  var bbox = {};
+
+  loadInfo(demfile, function(data) {
+    scalevalue = data.scalevalue;
+    bbox = data.bbox;
+  })
+
+  function loadInfo(filename, callback) {
+    var req = new XMLHttpRequest();
+    req.open('GET', '/deminfo?file='+filename, true);
+    req.onload = function(evt) {
+      var json = {}
+      if (req.response) {
+        json = JSON.parse(req.response)
+        callback(json);
+      }
+    };
+    req.send(null);
+  }
+	
+//  loadTerrain('data/water.bin', function (data){
+  loadTerrain(demfile, function (data){
+    console.log(data);
+
+    var geometry = new THREE.PlaneGeometry(200, 200, 199, 199);
+
+    geometry.computeFaceNormals();
+    geometry.computeVertexNormals();
+
+    for (var i = 0, l = geometry.vertices.length; i < l; i++) {
+      var intval = data[i] / 65535 * 100
+      //var intval = data[i];
+      geometry.vertices[i].z = intval;
+    }
+
+    var material = new THREE.MeshPhongMaterial({
+      color: 0xdddddd, 
+      wireframe: true
+    });
+
+    var plane = new THREE.Mesh(geometry, material);
+    plane.castShadow = true;
+    plane.receiveShadow = true;
+    scene.add(plane);
+
+    objects.push(plane);
+
+    var controls = new THREE.TrackballControls(camera); 
+
+    document.getElementById('webgl').appendChild(renderer.domElement);
+
+    scene.add(new THREE.AmbientLight(0x111111));
+
+    var light = new THREE.DirectionalLight(0xffffff, 1);
+    light.shadowCameraVisible = true;
+    light.position.set(0,300,100);
+    scene.add(light);
+
+    render();
+
+    function render() {
+      controls.update();    
+      requestAnimationFrame(render);
+      renderer.render(scene, camera);
+    }
+
+  });
+
+
+
+
+
+  var controls = new THREE.TrackballControls(camera); 
+
+  document.getElementById('webgl').appendChild(renderer.domElement);
+
+  render();
+
+  function render() {
+    controls.update();    
+    requestAnimationFrame(render);
+    renderer.render(scene, camera);
+  }
+
+    //https://github.com/mrdoob/three.js/blob/master/src/loaders/XHRLoader.js
+
+    // https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/Sending_and_Receiving_Binary_Data
+  function loadTerrain(file, callback) {
+    var req = new XMLHttpRequest();
+    req.responseType = 'arraybuffer';
+    req.open('GET', file, true);
+    req.onload = function(evt) {
+      if (req.response) {
+        callback(new Uint16Array(req.response));
+  				//callback(new Uint8Array(req.response));
+      }
+    };
+    req.send(null);
+  }
+	
+	document.addEventListener( 'mousemove', onDocumentMouseDown, false );
+	
+	var raycaster = new THREE.Raycaster();
+	var mouse = new THREE.Vector2();
+	
+	function onDocumentMouseDown( event ) {
+		//event.preventDefault();
+
+		mouse.x = ( event.clientX / renderer.domElement.width ) * 2 - 1;
+		mouse.y = - ( event.clientY / renderer.domElement.height ) * 2 + 1;
+
+		raycaster.setFromCamera( mouse, camera );
+		var intersects = raycaster.intersectObjects( objects );
+
+		if ( intersects.length > 0 ) {
+			/*intersects[ 0 ].object.material.color.setHex( Math.random() * 0xffffff );
+			var particle = new THREE.Sprite( particleMaterial );
+			particle.position.copy( intersects[ 0 ].point );
+			particle.scale.x = particle.scale.y = 16;
+			scene.add( particle );*/
+			console.log('intersection');
+			var point = intersects[0].point
+			var scaledx = simpleScale(bbox.left, bbox.right, point.x);
+			var scaledy = simpleScale(bbox.bottom, bbox.top, point.y);
+			var scaledz = point.z * scalevalue / 100;
+			$('#llhbox').html(scaledx+", "+scaledy+", "+scaledz);
+		}
+	}
+	
+	function simpleScale(min, max, val) {
+		var adj = (val + 100)/200.0;
+		var result = ((1-adj) * min) + (adj * max);
+		return result;
+	}
+
+</script>
+<div id='llhbox'>
+
+</div>
+</body>
+</html>
